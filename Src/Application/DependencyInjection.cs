@@ -1,6 +1,6 @@
 using Microsoft.Extensions.DependencyInjection;
 
-namespace MooWordsAPI.Infrastructure;
+namespace MooWordsAPI.Application;
 
 public static class DependencyInjection
 {

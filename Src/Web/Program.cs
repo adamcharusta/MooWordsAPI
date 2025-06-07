@@ -1,3 +1,4 @@
+using MooWordsAPI.Application;
 using MooWordsAPI.Infrastructure;
 using MooWordsAPI.Web;
 using Serilog;
