@@ -1,0 +1,15 @@
+#!/bin/bash
+
+echo "✅ Checking code formatting..."
+dotnet format --verify-no-changes
+if [ $? -ne 0 ]; then
+  echo "❌ The code is not formatted. Use 'dotnet format'"
+  exit 1
+fi
+
+echo "✅ Running tests..."
+dotnet test --collect:"XPlat Code Coverage"
+if [ $? -ne 0 ]; then
+  echo "❌ The tests failed."
+  exit 1
+fi
