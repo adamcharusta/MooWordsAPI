@@ -1,0 +1,35 @@
+next-version: 0.1.0
+mode: ContinuousDelivery
+
+branches:
+  main:
+    regex: ^main$
+    increment: patch
+    is-mainline: true
+    prevent-increment-of-merged-branch-version: true
+
+  develop:
+    regex: ^develop$
+    increment: minor
+    is-mainline: false
+    source-branches:
+      - main
+
+  feature:
+    regex: ^feature\/.*
+    increment: minor
+    source-branches:
+      - develop
+
+  fix:
+    regex: ^fix\/.*
+    increment: patch
+    source-branches:
+      - main
+      - develop
+
+  breaking:
+    regex: ^breaking\/.*
+    increment: major
+    source-branches:
+      - develop
