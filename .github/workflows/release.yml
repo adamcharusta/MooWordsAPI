@@ -1,0 +1,99 @@
+name: Release & Docker Publish
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Git
+        run: |
+          git config user.name "github-actions"
+          git config user.email "github-actions@github.com"
+          git remote set-url origin https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+
+      - name: Install GitVersion
+        uses: gittools/actions/gitversion/setup@v1
+        with:
+          versionSpec: "5.x"
+
+      - name: Run GitVersion
+        id: gitversion
+        uses: gittools/actions/gitversion/execute@v1
+
+      - name: Create tag
+        run: |
+          git tag v${{ steps.gitversion.outputs.semVer }}
+          git push origin v${{ steps.gitversion.outputs.semVer }}
+
+      - name: Generate changelog
+        run: |
+          echo "## Changelog for v${{ steps.gitversion.outputs.semVer }}" > changelog.md
+          git log $(git describe --tags --abbrev=0)^..HEAD --pretty=format:"* %s" >> changelog.md
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ steps.gitversion.outputs.semVer }}
+          body_path: changelog.md
+          prerelease: ${{ contains(steps.gitversion.outputs.semVer, '-') }}
+
+      - name: Clean up changelog
+        run: rm -f changelog.md
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Build and tag Docker image
+        run: |
+          IMAGE=${{ secrets.DOCKERHUB_USERNAME }}/moowords-api
+          VERSION=${{ steps.gitversion.outputs.semVer }}
+          BRANCH=${GITHUB_REF##*/}
+
+          docker build -t $IMAGE:$VERSION .
+
+          if [[ "$BRANCH" == "main" ]]; then
+            docker tag $IMAGE:$VERSION $IMAGE:latest
+          elif [[ "$BRANCH" == "develop" ]]; then
+            docker tag $IMAGE:$VERSION $IMAGE:dev-latest
+          fi
+
+          if [[ "$BRANCH" == "develop" && "$VERSION" == *"-"* ]]; then
+            docker tag $IMAGE:$VERSION $IMAGE:dev
+          fi
+
+      - name: Push Docker image
+        run: |
+          IMAGE=${{ secrets.DOCKERHUB_USERNAME }}/moowords-api
+          VERSION=${{ steps.gitversion.outputs.semVer }}
+          BRANCH=${GITHUB_REF##*/}
+
+          docker push $IMAGE:$VERSION
+
+          if [[ "$BRANCH" == "main" ]]; then
+            docker push $IMAGE:latest
+          elif [[ "$BRANCH" == "develop" ]]; then
+            docker push $IMAGE:dev-latest
+          fi
+
+          if [[ "$BRANCH" == "develop" && "$VERSION" == *"-"* ]]; then
+            docker push $IMAGE:dev
+          fi
